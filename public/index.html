@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Chat App</title>
+  </head>
+  <body>
+    <h1>Voice Chat Room</h1>
+    <button id="join">Join Room</button>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const roomId = "my-room";
+
+      document.getElementById("join").addEventListener("click", () => {
+        socket.emit("join-room", roomId);
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+          const audioElement = document.createElement("audio");
+          audioElement.srcObject = stream;
+          audioElement.play();
+
+          const peerConnection = new RTCPeerConnection();
+          stream
+            .getTracks()
+            .forEach((track) => peerConnection.addTrack(track, stream));
+
+          peerConnection.ontrack = (event) => {
+            const remoteAudio = document.createElement("audio");
+            remoteAudio.srcObject = event.streams[0];
+            remoteAudio.play();
+          };
+
+          peerConnection.createOffer().then((offer) => {
+            peerConnection.setLocalDescription(offer);
+            socket.emit("offer", offer, roomId);
+          });
+
+          socket.on("offer", (offer) => {
+            peerConnection.setRemoteDescription(
+              new RTCSessionDescription(offer)
+            );
+            peerConnection.createAnswer().then((answer) => {
+              peerConnection.setLocalDescription(answer);
+              socket.emit("answer", answer, roomId);
+            });
+          });
+
+          socket.on("answer", (answer) => {
+            peerConnection.setRemoteDescription(
+              new RTCSessionDescription(answer)
+            );
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
