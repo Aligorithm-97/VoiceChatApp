@@ -3,26 +3,150 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Voice Chat App</title>
+    <title>Gribline's Paradise</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f4f8;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      .container {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        width: 100%;
+        max-width: 400px;
+      }
+
+      h1 {
+        font-size: 24px;
+        color: #333;
+        margin-bottom: 20px;
+      }
+
+      input {
+        width: 80%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        width: 100%;
+        margin: 10px 0;
+      }
+
+      button:disabled {
+        background-color: #6c757d;
+      }
+
+      #login-message {
+        color: red;
+        margin-top: 10px;
+        font-size: 14px;
+      }
+
+      #leave {
+        background-color: #dc3545;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .chat-section {
+        margin-top: 20px;
+      }
+
+      button:hover:not(:disabled) {
+        background-color: #0056b3;
+      }
+
+      #leave:hover:not(:disabled) {
+        background-color: #c82333;
+      }
+    </style>
   </head>
   <body>
-    <h1>Voice Chat Room</h1>
-    <button id="join">Join Room</button>
+    <div class="container">
+      <h1>Gribline's Paradise</h1>
+
+      <div id="login-section">
+        <input type="text" id="username" placeholder="Username" />
+        <input type="password" id="password" placeholder="Password" />
+        <button id="login">Login</button>
+        <p id="login-message"></p>
+      </div>
+
+      <div id="chat-section" class="hidden">
+        <button id="join">Join Room</button>
+        <button id="leave" disabled>Leave Room</button>
+      </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io();
       const roomId = "my-room";
+      let peerConnection;
+      let localStream;
+
+      const configuration = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
+
+      document.getElementById("login").addEventListener("click", () => {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        socket.emit("login", { username, password }, (response) => {
+          if (response.success) {
+            document.getElementById("login-section").classList.add("hidden");
+            document.getElementById("chat-section").classList.remove("hidden");
+          } else {
+            document.getElementById("login-message").textContent =
+              response.message;
+          }
+        });
+      });
 
       document.getElementById("join").addEventListener("click", () => {
         socket.emit("join-room", roomId);
+        joinRoom();
+        document.getElementById("join").disabled = true;
+        document.getElementById("leave").disabled = false;
+      });
 
+      document.getElementById("leave").addEventListener("click", () => {
+        leaveRoom();
+        document.getElementById("join").disabled = false;
+        document.getElementById("leave").disabled = true;
+      });
+
+      function joinRoom() {
         navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+          localStream = stream;
           const audioElement = document.createElement("audio");
           audioElement.srcObject = stream;
           audioElement.play();
 
-          const peerConnection = new RTCPeerConnection();
+          peerConnection = new RTCPeerConnection(configuration);
           stream
             .getTracks()
             .forEach((track) => peerConnection.addTrack(track, stream));
@@ -31,6 +155,12 @@
             const remoteAudio = document.createElement("audio");
             remoteAudio.srcObject = event.streams[0];
             remoteAudio.play();
+          };
+
+          peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+              socket.emit("candidate", event.candidate, roomId);
+            }
           };
 
           peerConnection.createOffer().then((offer) => {
@@ -53,8 +183,21 @@
               new RTCSessionDescription(answer)
             );
           });
+
+          socket.on("candidate", (candidate) => {
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          });
         });
-      });
+      }
+
+      function leaveRoom() {
+        if (peerConnection) {
+          peerConnection.close();
+          peerConnection = null;
+          localStream.getTracks().forEach((track) => track.stop());
+        }
+        socket.emit("leave-room", roomId);
+      }
     </script>
   </body>
 </html>

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -9,40 +10,64 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, "public")));
 
-io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+const MAX_USERS = 5;
+let usersInRoom = 0;
+const USERS = process.env.USERS.split(",").map((user) => {
+  const [username, password] = user.split(":");
+  return { username, password };
+});
 
-  socket.on("join-room", (roomId) => {
+io.on("connection", (socket) => {
+  socket.on("login", ({ username, password }, callback) => {
+    const validUser = USERS.find(
+      (user) => user.username === username && user.password === password
+    );
+
+    if (!validUser) {
+      return callback({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    socket.username = username;
+    callback({ success: true });
+  });
+
+  socket.on("join-room", () => {
+    const roomId = "global-room";
+
+    if (usersInRoom >= MAX_USERS) {
+      socket.emit("room-full", { message: "Room is full" });
+      return;
+    }
+
     socket.join(roomId);
-    console.log(`User ${socket.id} joined room: ${roomId}`);
+    usersInRoom++;
+    console.log(
+      `User ${socket.username} joined room: ${roomId} (Users in room: ${usersInRoom})`
+    );
 
     socket.to(roomId).emit("user-connected", socket.id);
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
       socket.to(roomId).emit("user-disconnected", socket.id);
+      usersInRoom--;
     });
   });
 
-  socket.on("offer", (offer, roomId) => {
+  socket.on("offer", (offer) => {
+    const roomId = "global-room";
     socket.to(roomId).emit("offer", offer);
   });
 
-  socket.on("answer", (answer, roomId) => {
+  socket.on("answer", (answer) => {
+    const roomId = "global-room";
     socket.to(roomId).emit("answer", answer);
-  });
-
-  const allowedUsers = ["user1", "user2"];
-
-  socket.on("join-room", (roomId, user) => {
-    if (allowedUsers.includes(user)) {
-      socket.join(roomId);
-    } else {
-      socket.disconnect();
-    }
   });
 });
 
-server.listen(3000, () => {
+server.listen(3003, () => {
   console.log("Server running on http://localhost:3000");
 });
