@@ -5,9 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gribline's Paradise</title>
     <style>
+      #loginScreen {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        border: 1px solid;
+        padding: 100px;
+        border-radius: 50px;
+        color: white;
+      }
+      #roomScreen {
+        display: none;
+      }
+      .hidden {
+        display: none;
+      }
+      h1 {
+        color: #007bff;
+      }
       body {
         font-family: Arial, sans-serif;
-        background-color: #f0f4f8;
+        background-color: #121212;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -27,8 +45,9 @@
 
       h1 {
         font-size: 24px;
-        color: #333;
+        color: white;
         margin-bottom: 20px;
+        text-align: center;
       }
 
       input {
@@ -84,120 +103,168 @@
     </style>
   </head>
   <body>
-    <div class="container">
+    <div id="loginScreen">
+      <h2>Gribline's Paradise</h2>
+      <input type="text" id="username" placeholder="Enter your username" />
+      <button id="loginBtn">Login</button>
+      <p id="loginError" style="color: red" class="hidden">Invalid username</p>
+    </div>
+
+    <div id="roomScreen">
       <h1>Gribline's Paradise</h1>
-
-      <div id="login-section">
-        <input type="text" id="username" placeholder="Username" />
-        <input type="password" id="password" placeholder="Password" />
-        <button id="login">Login</button>
-        <p id="login-message"></p>
-      </div>
-
-      <div id="chat-section" class="hidden">
-        <button id="join">Join Room</button>
-        <button id="leave" disabled>Leave Room</button>
-      </div>
+      <button id="join" class="btn btn-success">Join Room</button>
+      <button id="leave" class="btn btn-danger" disabled>Leave Room</button>
+      <ul id="userList"></ul>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+      const validUsers = ["aligorithm", "ocyunus", "sakatberk"];
       const socket = io();
-      const roomId = "my-room";
-      let peerConnection;
       let localStream;
+      let peerConnections = {};
+      let username;
 
-      const configuration = {
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      };
+      const loginScreen = document.getElementById("loginScreen");
+      const roomScreen = document.getElementById("roomScreen");
+      const loginError = document.getElementById("loginError");
 
-      document.getElementById("login").addEventListener("click", () => {
-        const username = document.getElementById("username").value;
-        const password = document.getElementById("password").value;
+      loginScreen.style.display = "flex";
 
-        socket.emit("login", { username, password }, (response) => {
-          if (response.success) {
-            document.getElementById("login-section").classList.add("hidden");
-            document.getElementById("chat-section").classList.remove("hidden");
-          } else {
-            document.getElementById("login-message").textContent =
-              response.message;
+      document.getElementById("loginBtn").addEventListener("click", () => {
+        username = document.getElementById("username").value.trim();
+        if (validUsers.includes(username)) {
+          loginScreen.style.display = "none";
+          roomScreen.style.display = "block";
+          loginError.classList.add("hidden");
+        } else {
+          loginError.classList.remove("hidden");
+        }
+      });
+
+      async function startStreaming() {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        socket.emit("join-room", username);
+        localStream.getTracks().forEach((track) => {
+          track.onended = () => {
+            for (const key in peerConnections) {
+              peerConnections[key].close();
+            }
+          };
+        });
+      }
+
+      socket.on("user-connected", (userId) => {
+        addUserToList(userId);
+
+        const peerConnection = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        });
+        peerConnections[userId] = peerConnection;
+
+        localStream.getTracks().forEach((track) => {
+          peerConnection.addTrack(track, localStream);
+        });
+
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit("candidate", event.candidate, userId);
           }
+        };
+
+        peerConnection.ontrack = (event) => {
+          const audio = document.createElement("audio");
+          audio.srcObject = event.streams[0];
+          audio.play();
+        };
+
+        peerConnection
+          .createOffer()
+          .then((offer) => {
+            return peerConnection.setLocalDescription(offer);
+          })
+          .then(() => {
+            socket.emit("offer", peerConnection.localDescription, userId);
+          });
+      });
+
+      socket.on("offer", (offer, userId) => {
+        const peerConnection = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        });
+        peerConnections[userId] = peerConnection;
+
+        peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        localStream.getTracks().forEach((track) => {
+          peerConnection.addTrack(track, localStream);
+        });
+
+        peerConnection
+          .createAnswer()
+          .then((answer) => {
+            return peerConnection.setLocalDescription(answer);
+          })
+          .then(() => {
+            socket.emit("answer", peerConnection.localDescription, userId);
+          });
+
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit("candidate", event.candidate, userId);
+          }
+        };
+
+        peerConnection.ontrack = (event) => {
+          const audio = document.createElement("audio");
+          audio.srcObject = event.streams[0];
+          audio.play();
+        };
+      });
+
+      socket.on("answer", (answer, userId) => {
+        peerConnections[userId].setRemoteDescription(
+          new RTCSessionDescription(answer)
+        );
+      });
+
+      socket.on("candidate", (candidate, userId) => {
+        peerConnections[userId].addIceCandidate(new RTCIceCandidate(candidate));
+      });
+
+      socket.on("user-list", (userList) => {
+        const userListElement = document.getElementById("userList");
+        userListElement.innerHTML = "";
+        userList.forEach((user) => {
+          const li = document.createElement("li");
+          li.textContent = user;
+          userListElement.appendChild(li);
         });
       });
 
+      function addUserToList(userId) {
+        const userListElement = document.getElementById("userList");
+        const li = document.createElement("li");
+        li.textContent = userId;
+        userListElement.appendChild(li);
+      }
+
       document.getElementById("join").addEventListener("click", () => {
-        socket.emit("join-room", roomId);
-        joinRoom();
+        startStreaming();
         document.getElementById("join").disabled = true;
         document.getElementById("leave").disabled = false;
       });
 
       document.getElementById("leave").addEventListener("click", () => {
-        leaveRoom();
+        localStream.getTracks().forEach((track) => track.stop());
+        for (const key in peerConnections) {
+          peerConnections[key].close();
+        }
+        socket.disconnect();
         document.getElementById("join").disabled = false;
         document.getElementById("leave").disabled = true;
       });
-
-      function joinRoom() {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-          localStream = stream;
-          const audioElement = document.createElement("audio");
-          audioElement.srcObject = stream;
-          audioElement.play();
-
-          peerConnection = new RTCPeerConnection(configuration);
-          stream
-            .getTracks()
-            .forEach((track) => peerConnection.addTrack(track, stream));
-
-          peerConnection.ontrack = (event) => {
-            const remoteAudio = document.createElement("audio");
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.play();
-          };
-
-          peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-              socket.emit("candidate", event.candidate, roomId);
-            }
-          };
-
-          peerConnection.createOffer().then((offer) => {
-            peerConnection.setLocalDescription(offer);
-            socket.emit("offer", offer, roomId);
-          });
-
-          socket.on("offer", (offer) => {
-            peerConnection.setRemoteDescription(
-              new RTCSessionDescription(offer)
-            );
-            peerConnection.createAnswer().then((answer) => {
-              peerConnection.setLocalDescription(answer);
-              socket.emit("answer", answer, roomId);
-            });
-          });
-
-          socket.on("answer", (answer) => {
-            peerConnection.setRemoteDescription(
-              new RTCSessionDescription(answer)
-            );
-          });
-
-          socket.on("candidate", (candidate) => {
-            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          });
-        });
-      }
-
-      function leaveRoom() {
-        if (peerConnection) {
-          peerConnection.close();
-          peerConnection = null;
-          localStream.getTracks().forEach((track) => track.stop());
-        }
-        socket.emit("leave-room", roomId);
-      }
     </script>
   </body>
 </html>
