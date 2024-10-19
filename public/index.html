@@ -25,10 +25,10 @@
       property="og:description"
       content="Voice Space allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
     />
-    <!-- <meta
+    <meta
       property="og:image"
-      content="https://voicechannel.online/images/voice-space-banner.png"
-    /> -->
+      content="https://voicechannel.online/images/voiceSpace.webp"
+    />
     <meta property="og:site_name" content="Voice Space" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -41,13 +41,13 @@
       name="twitter:description"
       content="Voice Space allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
     />
-    <!-- <meta
+    <meta
       name="twitter:image"
-      content="https://voicechannel.online/images/voice-space-banner.png"
-    /> -->
+      content="https://voicechannel.online/images/voiceSpace.webp"
+    />
     <meta name="twitter:creator" content="@YourTwitterHandle" />
 
-    <!-- <link rel="icon" href="/images/favicon.ico" type="image/x-icon" /> -->
+    <link rel="icon" href="/images/voiceSpace.webp" type="image/x-icon" />
     <title>Voice Space</title>
     <style>
       * {
@@ -237,14 +237,14 @@
       document.getElementById("loginBtn").addEventListener("click", () => {
         const usernameInput = document.getElementById("username");
         const username = usernameInput.value.trim();
-        const loginError = document.getElementById("loginError"); // Hata mesajı referansı
+        const loginError = document.getElementById("loginError");
 
         if (validUsers.includes(username)) {
-          loginScreen.style.display = "none"; // Login ekranını gizle
-          roomScreen.style.display = "block"; // Oda ekranını göster
-          loginError.classList.add("hidden"); // Hata mesajını gizle
+          loginScreen.style.display = "none";
+          roomScreen.style.display = "block";
+          loginError.classList.add("hidden");
         } else {
-          loginError.classList.remove("hidden"); // Yanlış girişte hata mesajını göster
+          loginError.classList.remove("hidden");
         }
       });
 
