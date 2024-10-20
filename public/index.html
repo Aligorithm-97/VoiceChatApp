@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="title" content="Voice Space" />
+    <meta name="title" content="VoiceSpace" />
     <meta
       name="description"
-      content="Voice Space allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
+      content="VoiceSpace allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
     />
     <meta
       name="keywords"
@@ -19,27 +19,27 @@
     <meta property="og:url" content="https://voicechannel.online/" />
     <meta
       property="og:title"
-      content="Voice Space - Connect and Communicate Effortlessly"
+      content="VoiceSpace - Connect and Communicate Effortlessly"
     />
     <meta
       property="og:description"
-      content="Voice Space allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
+      content="VoiceSpace allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
     />
     <meta
       property="og:image"
       content="https://voicechannel.online/images/voiceSpace.webp"
     />
-    <meta property="og:site_name" content="Voice Space" />
+    <meta property="og:site_name" content="VoiceSpace" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://voicechannel.online/" />
     <meta
       name="twitter:title"
-      content="Voice Space - Connect and Communicate Effortlessly"
+      content="VoiceSpace - Connect and Communicate Effortlessly"
     />
     <meta
       name="twitter:description"
-      content="Voice Space allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
+      content="VoiceSpace allows you to join voice rooms and communicate with others in real time. Connect, collaborate, and chat with ease."
     />
     <meta
       name="twitter:image"
@@ -48,7 +48,7 @@
     <meta name="twitter:creator" content="@YourTwitterHandle" />
 
     <link rel="icon" href="/images/voiceSpace.webp" type="image/x-icon" />
-    <title>Voice Space</title>
+    <title>VoiceSpace</title>
     <style>
       * {
         margin: 0;
@@ -203,18 +203,39 @@
       #roomScreen {
         display: none;
       }
+      .mic-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 20%;
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        margin: 20px auto;
+      }
+
+      .mic-on {
+        background-color: #28a745;
+        background-image: url("/images/micIcon.png");
+      }
+
+      .mic-off {
+        background-color: #dc3545;
+        background-image: url("/images/micIcon.png");
+      }
     </style>
   </head>
   <body>
     <div id="loginScreen" class="container">
-      <h2>Voice Space</h2>
+      <h2>VoiceSpace</h2>
       <input type="text" id="username" placeholder="Enter your username" />
       <button id="loginBtn">Login</button>
       <p id="loginError" class="hidden" style="color: red">Invalid username</p>
     </div>
 
     <div id="roomScreen" class="container">
-      <h1>Voice Space</h1>
+      <h1>VoiceSpace</h1>
+      <div id="micStatus" class="mic-icon mic-on"></div>
+      <br />
       <button id="join">Join Room</button>
       <button id="leave" disabled>Leave Room</button>
       <ul id="userList"></ul>
@@ -227,12 +248,32 @@
       let localStream;
       let peerConnections = {};
       let username;
+      let isMuted = false;
 
       const loginScreen = document.getElementById("loginScreen");
       const roomScreen = document.getElementById("roomScreen");
       const loginError = document.getElementById("loginError");
+      const micStatus = document.getElementById("micStatus");
 
       loginScreen.style.display = "flex";
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "m" || event.key === "M") {
+          if (localStream) {
+            localStream.getAudioTracks().forEach((track) => {
+              track.enabled = !track.enabled;
+            });
+            isMuted = !isMuted;
+            if (isMuted) {
+              micStatus.classList.remove("mic-on");
+              micStatus.classList.add("mic-off");
+            } else {
+              micStatus.classList.remove("mic-off");
+              micStatus.classList.add("mic-on");
+            }
+          }
+        }
+      });
 
       document.getElementById("loginBtn").addEventListener("click", () => {
         const usernameInput = document.getElementById("username");
