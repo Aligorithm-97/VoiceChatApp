@@ -9,6 +9,35 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
+
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  const validUsers = [
+    {
+      username: process.env.USER_1_USERNAME,
+      password: process.env.USER_1_PASSWORD,
+    },
+    {
+      username: process.env.USER_2_USERNAME,
+      password: process.env.USER_2_PASSWORD,
+    },
+    {
+      username: process.env.USER_3_USERNAME,
+      password: process.env.USER_3_PASSWORD,
+    },
+  ];
+
+  const user = validUsers.find(
+    (u) => u.username === username && u.password === password
+  );
+
+  if (user) {
+    res.status(200).json({ message: "Login successful!" });
+  } else {
+    res.status(401).json({ message: "Unauthorized" });
+  }
+});
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);

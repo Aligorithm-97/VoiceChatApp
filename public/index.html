@@ -228,6 +228,7 @@
     <div id="loginScreen" class="container">
       <h2>VoiceSpace</h2>
       <input type="text" id="username" placeholder="Enter your username" />
+      <input type="password" id="password" placeholder="Enter your password" />
       <button id="loginBtn">Login</button>
       <p id="loginError" class="hidden" style="color: red">Invalid username</p>
     </div>
@@ -243,7 +244,6 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-      const validUsers = ["aligorithm", "gribline", "seer"];
       const socket = io();
       let localStream;
       let peerConnections = {};
@@ -277,16 +277,34 @@
 
       document.getElementById("loginBtn").addEventListener("click", () => {
         const usernameInput = document.getElementById("username");
+        const passwordInput = document.getElementById("password");
         const username = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
         const loginError = document.getElementById("loginError");
 
-        if (validUsers.includes(username)) {
-          loginScreen.style.display = "none";
-          roomScreen.style.display = "block";
-          loginError.classList.add("hidden");
-        } else {
-          loginError.classList.remove("hidden");
-        }
+        fetch("/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username, password }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.message === "Login successful!") {
+              loginScreen.style.display = "none";
+              roomScreen.style.display = "block";
+              loginError.classList.add("hidden");
+            } else {
+              loginError.textContent = "Invalid username or password.";
+              loginError.classList.remove("hidden");
+            }
+          })
+          .catch((error) => {
+            console.error("Error during login:", error);
+            loginError.textContent = "An error occurred during login.";
+            loginError.classList.remove("hidden");
+          });
       });
 
       async function startStreaming() {
