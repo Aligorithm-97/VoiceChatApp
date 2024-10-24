@@ -26,6 +26,10 @@ app.post("/login", (req, res) => {
       username: process.env.USER_3_USERNAME,
       password: process.env.USER_3_PASSWORD,
     },
+    {
+      username: process.env.USER_4_USERNAME,
+      password: process.env.USER_4_PASSWORD,
+    },
   ];
 
   const user = validUsers.find(
